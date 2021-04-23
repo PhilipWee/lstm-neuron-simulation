@@ -1,0 +1,257 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+rm(list=ls())
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```{r}
+PL = 1000 #Phase length in time steps
+mx = 1 #Max value
+sf = 1 #Scaling factor
+nS = PL/(mx*sf) #Number of spikes required to represent the value 1
+AMP = 0 #Accumulated membrane potential
+```
+
+Simulating a sigmoid function
+
+Set the cell parameters
+```{r}
+RThr = nS
+input_per_phase = seq(-1,1,length.out=10)
+num_phases = length(input_per_phase)*2 #times 2 because you can only input every other phase (store and release)
+```
+
+
+Create the input spike trains
+```{r}
+positive_input_train <- c()
+negative_input_train <- c()
+
+for (val in input_per_phase) {
+  val_mag = min(abs(val),1)
+  spike_train = c(rep(1,val_mag*nS),rep(0,PL-val_mag*nS))
+  if (val > 0) {
+    positive_input_train <- c(positive_input_train,spike_train)
+    negative_input_train <- c(negative_input_train,rep(0,1000))
+  } else {
+    negative_input_train <- c(negative_input_train,spike_train)
+    positive_input_train <- c(positive_input_train,rep(0,1000))
+  }
+  #Simulate the release stage where we do not send any inputs
+  negative_input_train <- c(negative_input_train,rep(0,1000))
+  positive_input_train <- c(positive_input_train,rep(0,1000))
+}
+
+plot(positive_input_train)
+plot(negative_input_train)
+```
+
+
+
+Simulate the behaviour of a sigmoid cell
+
+```{r}
+AMP_vector = c()
+output_spike_vector = c()
+
+for (time_step in 1:(num_phases*PL)) {
+  #Precharge and storage
+  if ((time_step-1) %% (2*PL) == 0) {
+    
+    AMP <- -200 #Store stage
+    
+    #------SIMULATE SIGMOID FUNCTIONALITY-------
+    AMP <- AMP + nS/2
+    #------SIMULATE SIGMOID FUNCTIONALITY-------
+  }
+  if ((time_step-2) %% PL ==0) {
+    
+    AMP <- AMP + 100 #PrCh/Release
+  }
+  #Precharge and storage
+  
+  #---main---
+  # AMP = 0
+  if ((time_step-1) %% (2*PL) < PL) {
+    #store stage
+    AMP = AMP + positive_input_train[time_step]
+    AMP = AMP - negative_input_train[time_step]
+  }
+  
+  #---main---
+  
+  #Determine if spike
+  AMP = min(AMP,nS) #Do not exceed the max threshold
+  AMP = max(AMP,-200) #Do not exceed the min threshold
+  
+  if (runif(1,min=0,max=RThr)<AMP) {
+    output <- 1
+  } else {
+    output <- 0
+  }
+  
+  AMP_vector <- c(AMP_vector,AMP)
+  output_spike_vector <- c(output_spike_vector,output)
+  
+}
+
+#Decode the output spike train
+output_per_phase <- c()
+
+#Only take outputs during the output
+for (phase in seq(1,num_phases,2)) {
+  output_per_phase <- c(output_per_phase,mean(output_spike_vector[(phase*PL):((phase+1)*PL)]))
+}
+
+plot(AMP_vector,type='s')
+plot(output_spike_vector)
+plot(input_per_phase,output_per_phase)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Simulating a tanh function
+
+Set the cell parameters
+```{r}
+RThr = nS/2
+input_per_phase = seq(-1,1,length.out=10)
+num_phases = length(input_per_phase)*2 #times 2 because you can only input every other phase (store and release)
+```
+
+
+Create the input spike trains
+```{r}
+positive_input_train <- c()
+negative_input_train <- c()
+
+for (val in input_per_phase) {
+  val_mag = min(abs(val),1)
+  spike_train = c(rep(1,val_mag*nS),rep(0,PL-val_mag*nS))
+  if (val > 0) {
+    positive_input_train <- c(positive_input_train,spike_train)
+    negative_input_train <- c(negative_input_train,rep(0,1000))
+  } else {
+    negative_input_train <- c(negative_input_train,spike_train)
+    positive_input_train <- c(positive_input_train,rep(0,1000))
+  }
+  #Simulate the release stage where we do not send any inputs
+  negative_input_train <- c(negative_input_train,rep(0,1000))
+  positive_input_train <- c(positive_input_train,rep(0,1000))
+}
+
+plot(positive_input_train)
+plot(negative_input_train)
+```
+
+
+
+Simulate the behaviour of a tanh cell
+
+```{r}
+AMP_vector = c()
+output_spike_vector = c()
+
+#TANH FUNCTIONALITY
+AMP_neg_vector = c()
+
+for (time_step in 1:(num_phases*PL)) {
+  #Precharge and storage
+  if ((time_step-1) %% (2*PL) == 0) {
+    
+    AMP <- -200 #Store stage
+    AMP_neg <- -200
+    
+  }
+  if ((time_step-2) %% PL ==0) {
+    
+    AMP <- AMP + 100 #PrCh/Release
+    AMP_neg <- AMP_neg + 100 #PrCh/Release
+  }
+  #Precharge and storage
+  
+  #---main---
+  # AMP = 0
+  if ((time_step-1) %% (2*PL) < PL) {
+    #store stage
+    AMP = AMP + positive_input_train[time_step]
+    AMP = AMP - negative_input_train[time_step]
+    
+    #store stage
+    AMP_neg = AMP_neg - positive_input_train[time_step]
+    AMP_neg = AMP_neg + negative_input_train[time_step]
+  }
+  
+  #---main---
+  
+  #Determine if spike
+  AMP = min(AMP,nS) #Do not exceed the max threshold
+  AMP = max(AMP,-200) #Do not exceed the min threshold
+  
+  AMP_neg = min(AMP_neg,nS) #Do not exceed the max threshold
+  AMP_neg = max(AMP_neg,-200) #Do not exceed the min threshold
+  
+  
+  
+  if (runif(1,min=0,max=RThr)<AMP) {
+    output <- 1
+  } else {
+    output <- 0
+  }
+  
+  if (runif(1,min=0,max=RThr)<AMP_neg) {
+    output <- output - 1
+  } else {
+    output <- output - 0
+  }
+  
+  AMP_vector <- c(AMP_vector,AMP)
+  AMP_neg_vector <- c(AMP_neg_vector,AMP_neg)
+  output_spike_vector <- c(output_spike_vector,output)
+  
+}
+
+
+
+#Decode the output spike train
+output_per_phase <- c()
+
+#Only take outputs during the output
+for (phase in seq(1,num_phases,2)) {
+  output_per_phase <- c(output_per_phase,mean(output_spike_vector[(phase*PL):((phase+1)*PL)]))
+}
+
+plot(AMP_vector,type='s')
+plot(AMP_neg_vector,type='s')
+plot(output_spike_vector)
+plot(input_per_phase,output_per_phase)
+```
+
